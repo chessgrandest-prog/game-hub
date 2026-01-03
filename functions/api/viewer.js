@@ -1,11 +1,16 @@
 // functions/api/viewer.js
 export default async function handler(req, res) {
-  const { src } = req.query;
+  let { src } = req.query;
 
   if (!src) {
     res.status(400).json({ error: 'Missing src parameter' });
     return;
   }
+
+  // ---------- OPTIONAL LINE ----------
+  // Ensure the incoming src is a fully‑encoded URL before we fetch it
+  src = encodeURI(src);
+  // ------------------------------------
 
   console.log('viewer.js received src:', src); // shows up in Function Logs
 
