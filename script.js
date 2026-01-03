@@ -1,23 +1,18 @@
-/* ──────────────────────────────────────────────────────────────────────
-   1️⃣ DOM ELEMENTS
-   ────────────────────────────────────────────────────────────────────── */
+/* ─────── 1️⃣ DOM ELEMENTS ─────── */
 const container = document.getElementById('games');
 const header    = document.querySelector('header');
 
-/* ──────────────────────────────────────────────────────────────────────
-   2️⃣ LocalStorage helpers
-   ───────────────────────────────────────────────*/
+/* ─────── 2️⃣ LocalStorage helpers ─────── */
 const LS = {
   THEME:        'gamehub-theme',
   FAVORITES:    'gamehub-favs',
-  getTheme: ()  => localStorage.getItem('gamehub-theme') ?? 'light',
-  setTheme: (t) => localStorage.setItem('gamehub-theme', t),
-  getFavs: ()   => JSON.parse(localStorage.getItem('gamehub-favs') || '{}'),
-  setFavs: (d)  => localStorage.setItem('gamehub-favs', JSON.stringify(d)),
+  getTheme:     () => localStorage.getItem('gamehub-theme') ?? 'light',
+  setTheme:     (t) => localStorage.setItem('gamehub-theme', t),
+  getFavs:      () => JSON.parse(localStorage.getItem('gamehub-favs') || '{}'),
+  setFavs:      (d) => localStorage.setItem('gamehub-favs', JSON.stringify(d)),
 };
 
-/* ───────────────────────────────────────────────*/
-/* 3️⃣ Theme (Dark/Light) – persistent toggle */
+/* ─────── 3️⃣ Theme toggle ─────── */
 const applyTheme = t => document.documentElement.dataset.theme = t;
 applyTheme(LS.getTheme());
 
@@ -32,8 +27,7 @@ btnTheme.onclick = () => {
 };
 header.appendChild(btnTheme);
 
-/* ───────────────────────────────────────────────*/
-/* 4️⃣ Search input */
+/* ─────── 4️⃣ Search input ─────── */
 const searchInput = document.createElement('input');
 searchInput.id   = 'searchInput';
 searchInput.type = 'text';
@@ -41,22 +35,23 @@ searchInput.placeholder = 'Search…';
 searchInput.oninput = () => renderGames(filterGames(searchInput.value, allGames));
 header.appendChild(searchInput);
 
-/* ───────────────────────────────────────────────*/
-/* 5️⃣ Random Game button */
+/* ─────── 5️⃣ Random game button ─────── */
 const btnRandom = document.createElement('button');
 btnRandom.className = 'toolbar-btn';
 btnRandom.textContent = '🎲 Random';
 btnRandom.onclick = () => openRandom(allGames);
 header.appendChild(btnRandom);
 
-/* ── About button – real about:blank copy, games open in another blank tab ── */
+/* ─────── 6️⃣ About button (opens a new blank tab) ─────── */
 const btnAbout = document.createElement('button');
 btnAbout.className = 'toolbar-btn';
 btnAbout.textContent = 'About : blank';
 
 btnAbout.onclick = () => {
+  // 1️⃣ open a fresh about:blank window
   const aboutWin = window.open('', '_blank');
 
+  // 2️⃣ inject the full page (header, grid, script, style)
   aboutWin.document.write(`
     <!doctype html>
     <html lang="en">
@@ -74,14 +69,16 @@ btnAbout.onclick = () => {
   `);
   aboutWin.document.close();
 
+  // 3️⃣ patch links once the grid has finished rendering
   aboutWin.addEventListener('load', () => {
     const patchLinks = () => {
       const links = aboutWin.document.querySelectorAll('#games a');
       links.forEach(a => {
-        const gameUrl = a.getAttribute('href');
+        const gameUrl = a.getAttribute('href');   // e.g. viewer.html?src=…
         a.removeAttribute('href');
         a.style.cursor = 'pointer';
 
+        // open the game in a *new* blank tab
         a.onclick = () => {
           const gameWin = window.open('', '_blank');
           gameWin.document.write(`
@@ -113,8 +110,7 @@ btnAbout.onclick = () => {
 
 header.appendChild(btnAbout);
 
-/* ────────────────────────────────────────────────*/
-/* 7️⃣ Favorites – only mark when the user clicks the star */
+/* ─────── 7️⃣ Favorites helpers ─────── */
 const toggleFavorite = (card, url) => {
   const favs = LS.getFavs();
   if (favs[url]) delete favs[url]; else favs[url] = true;
@@ -128,14 +124,16 @@ const updateCardFavorite = (card, isFav) => {
   star.classList.toggle('fav-active', isFav);
 };
 
-/* ────────────────────────────────────────────────*/
-/* 8️⃣ Build a single card (no innerHTML mutation) */
+/* ─────── 8️⃣ Build a single card (no innerHTML mutation) ─────── */
 const buildCard = game => {
-  /*  NEW CODE – prepend the raw‑URL base if needed  */
+  /* ---------- NEW LOGIC ---------- */
+  // If the game URL is already a full HTTPS URL we use it as‑is.
+  // Otherwise we assume it is a relative path within the repo and build the raw‑GitHub URL.
   const rawBase = 'https://raw.githubusercontent.com/chessgrandest-prog/fun/main';
   const fullSrc = game.url.startsWith('http')
     ? game.url
     : `${rawBase}/${game.url.replace(/^\/+/, '')}`;
+  /* -------------------------------- */
 
   const card = document.createElement('a');
   card.href = `viewer.html?src=${encodeURIComponent(fullSrc)}`;
@@ -182,8 +180,7 @@ const buildCard = game => {
   return card;
 };
 
-/* ────────────────────────────────────────────────*/
-/* 9️⃣ Random / Search helpers */
+/* ─────── 9️⃣ Random / Search helpers ─────── */
 const openRandom = games => {
   if (!games.length) return;
   const r = games[Math.floor(Math.random() * games.length)];
@@ -196,10 +193,9 @@ const filterGames = (query, games) => {
   return games.filter(g => g.title.toLowerCase().includes(q));
 };
 
-/* ────────────────────────────────────────────────*/
-/* 1️⃣0️⃣ Rendering the grid */
+/* ─────── 1️⃣0️⃣ Rendering the grid ─────── */
 let allGames = [];
-let showOnlyFavs = false;
+let showOnlyFavs = false;   // start by showing everything
 
 fetch('games.json')
   .then(r => {
@@ -229,8 +225,7 @@ function renderGames(games) {
   container.appendChild(frag);
 }
 
-/* ────────────────────────────────────────────────*/
-/* ★ “Favorites‑Only” toggle button */
+/* ─────── ★ “Favorites‑Only” toggle button ─────── */
 const btnFavOnly = document.createElement('button');
 btnFavOnly.className = 'toolbar-btn';
 btnFavOnly.textContent = '★ All';
