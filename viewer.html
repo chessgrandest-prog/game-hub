@@ -12,18 +12,18 @@
   <iframe id="gameFrame" src=""></iframe>
 
   <script>
-    // Grab the game URL from the query string
-    const params = new URLSearchParams(window.location.search);
-    const rawUrl = params.get('src');
+  const params = new URLSearchParams(window.location.search);
+  const rawUrl = params.get('src');
 
-    if (!rawUrl) {
-      document.body.textContent = 'No game specified.';
-      throw new Error('No src parameter');
-    }
+  if (!rawUrl) {
+    document.body.textContent = 'No game specified.';
+    throw new Error('No src parameter');
+  }
 
-    // Use the Vercel API proxy we created
-    const proxyUrl = `/api/viewer?src=${encodeURIComponent(rawUrl)}`;
-    document.getElementById('gameFrame').src = proxyUrl;
-  </script>
+  // use the API function
+  const iframe = document.getElementById('gameFrame');
+  iframe.src = `/api/viewer?src=${encodeURIComponent(rawUrl)}`;
+</script>
+
 </body>
 </html>
