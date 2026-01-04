@@ -71,13 +71,23 @@ export async function onRequest(context) {
     else if (relativePath.endsWith('.mp3')) mimeType = 'audio/mpeg';
     else if (relativePath.endsWith('.wasm')) mimeType = 'application/wasm';
     else if (relativePath.endsWith('.html')) mimeType = 'text/html';
+    else if (relativePath.endsWith('.ttf')) mimeType = 'font/ttf';
+    else if (relativePath.endsWith('.woff')) mimeType = 'font/woff';
+    else if (relativePath.endsWith('.woff2')) mimeType = 'font/woff2';
+    else if (relativePath.endsWith('.eot')) mimeType = 'application/vnd.ms-fontobject';
+    else if (relativePath.endsWith('.otf')) mimeType = 'font/otf';
+    else if (relativePath.endsWith('.ico')) mimeType = 'image/x-icon';
+    else if (relativePath.endsWith('.dll')) mimeType = 'application/octet-stream';
+    else if (relativePath.endsWith('.dat')) mimeType = 'application/octet-stream';
 
     // Set appropriate headers
+    // Add Cross-Origin-Resource-Policy for cross-origin isolation (needed for COEP: require-corp)
     return new Response(content, {
       headers: {
         'Content-Type': mimeType,
         'Cache-Control': 'public, max-age=3600',
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*',
+        'Cross-Origin-Resource-Policy': 'cross-origin'
       }
     });
 

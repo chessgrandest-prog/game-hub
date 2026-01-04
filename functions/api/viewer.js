@@ -39,10 +39,42 @@ export async function onRequest(context) {
     // Rewrite relative links to proxy through the API
     const encodedSrc = encodeURIComponent(src);
     html = html.replace(/(href|src)=(['"])(.*?)\2/g, (match, attr, quote, p1) => {
+      // Skip absolute URLs, data URIs, hash links, and mailto links
       if (p1.startsWith('http') || p1.startsWith('//') || p1.startsWith('data:') || p1.startsWith('#') || p1.startsWith('mailto:')) return match;
       
-      const separator = p1.includes('?') ? '&' : '?';
-      return `${attr}=${quote}${p1}${separator}src=${encodedSrc}${quote}`;
+      // Normalize path: remove leading ./ and handle relative paths
+      let normalizedPath = p1.replace(/^\.\//, '');
+      
+      // Split path and query/hash if present
+      const hashIndex = normalizedPath.indexOf('#');
+      const queryIndex = normalizedPath.indexOf('?');
+      let pathPart = normalizedPath;
+      let queryPart = '';
+      let hashPart = '';
+      
+      if (queryIndex !== -1) {
+        pathPart = normalizedPath.substring(0, queryIndex);
+        const rest = normalizedPath.substring(queryIndex + 1);
+        if (hashIndex !== -1 && hashIndex > queryIndex) {
+          const hashIndexInRest = rest.indexOf('#');
+          queryPart = rest.substring(0, hashIndexInRest);
+          hashPart = rest.substring(hashIndexInRest);
+        } else {
+          queryPart = rest;
+        }
+      } else if (hashIndex !== -1) {
+        pathPart = normalizedPath.substring(0, hashIndex);
+        hashPart = normalizedPath.substring(hashIndex);
+      }
+      
+      // Ensure path starts with /
+      if (!pathPart.startsWith('/')) {
+        pathPart = '/' + pathPart;
+      }
+      
+      // Build API path with src parameter
+      const querySeparator = queryPart ? '&' : '?';
+      return `${attr}=${quote}/api${pathPart}${querySeparator}src=${encodedSrc}${queryPart ? '&' + queryPart : ''}${hashPart}${quote}`;
     });
 
     // Set appropriate headers
