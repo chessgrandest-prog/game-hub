@@ -29,14 +29,20 @@ export default async function handler(req, res) {
 
       let html = await response.text();
 
-      // Rewrite relative links to /api/ paths with src param
+      // Rewrite relative links to absolute GitHub URLs
       html = html.replace(/href="([^"]*)"/g, (match, p1) => {
         if (p1.startsWith('http') || p1.startsWith('//')) return match;
-        return `href="/api/${p1}?src=${encodeURIComponent(src)}"`;
+        if (p1.startsWith('/api/')) {
+          return `href="${baseUrl}${p1.substr(5)}"`;
+        }
+        return `href="${baseUrl}${p1}"`;
       });
       html = html.replace(/src="([^"]*)"/g, (match, p1) => {
         if (p1.startsWith('http') || p1.startsWith('//')) return match;
-        return `src="/api/${p1}?src=${encodeURIComponent(src)}"`;
+        if (p1.startsWith('/api/')) {
+          return `src="${baseUrl}${p1.substr(5)}"`;
+        }
+        return `src="${baseUrl}${p1}"`;
       });
 
       // Set appropriate headers
