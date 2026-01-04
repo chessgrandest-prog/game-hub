@@ -87,11 +87,11 @@ export async function onRequest(context) {
 
     // Set appropriate headers
     // Add cross-origin isolation headers for Terraria/WebAssembly games
+    // Note: X-Frame-Options is removed as it can interfere with cross-origin isolation
     return new Response(html, {
       headers: {
         'Content-Type': 'text/html',
         'Cache-Control': 'public, max-age=3600',
-        'X-Frame-Options': 'ALLOWALL',
         'Cross-Origin-Embedder-Policy': 'require-corp',
         'Cross-Origin-Opener-Policy': 'same-origin'
       }
