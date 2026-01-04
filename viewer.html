@@ -20,16 +20,9 @@
     throw new Error('No src parameter');
   }
 
-  // Load the game - if it's a local path (starts with /), serve directly
-  // Otherwise use the API proxy for external URLs
+  // Load the game via the proxy function
   const iframe = document.getElementById('gameFrame');
-  if (rawUrl.startsWith('/')) {
-    // Local path - serve directly
-    iframe.src = rawUrl;
-  } else {
-    // External URL - use API proxy
-    iframe.src = `/api/viewer?src=${encodeURIComponent(rawUrl)}`;
-  }
+  iframe.src = `/api/viewer?src=${encodeURIComponent(rawUrl)}`;
   </script>
 
 </body>
