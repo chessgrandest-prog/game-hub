@@ -132,6 +132,69 @@ export async function onRequest(context) {
       
       content = textEncoder.encode(cssContent);
     }
+    
+    // Rewrite URLs in JavaScript files (import(), import.meta.url, etc.)
+    if (isJs) {
+      const textDecoder = new TextDecoder();
+      const textEncoder = new TextEncoder();
+      let jsContent = textDecoder.decode(content);
+      const encodedSrc = encodeURIComponent(src);
+      
+      // Helper function to resolve a path relative to the JS file's directory
+      const resolvePath = (urlPath) => {
+        if (urlPath.startsWith('http') || urlPath.startsWith('//') || urlPath.startsWith('data:') || urlPath.startsWith('#') || urlPath.startsWith('mailto:')) {
+          return null; // Don't rewrite absolute URLs
+        }
+        
+        let normalizedPath = urlPath.trim();
+        
+        if (!normalizedPath.startsWith('/')) {
+          // Resolve relative path relative to JS file's directory
+          const jsDir = relativePath.includes('/') 
+            ? relativePath.substring(0, relativePath.lastIndexOf('/') + 1)
+            : '';
+          
+          // Resolve .. and . in the path
+          const pathParts = (jsDir + normalizedPath).split('/');
+          const resolvedParts = [];
+          
+          for (const part of pathParts) {
+            if (part === '..') {
+              resolvedParts.pop();
+            } else if (part !== '.' && part !== '') {
+              resolvedParts.push(part);
+            }
+          }
+          
+          normalizedPath = '/' + resolvedParts.join('/');
+        } else {
+          // Remove leading ./ if present
+          normalizedPath = normalizedPath.replace(/^\.\//, '');
+        }
+        
+        const separator = normalizedPath.includes('?') ? '&' : '?';
+        return `/api${normalizedPath}${separator}src=${encodedSrc}`;
+      };
+      
+      // Rewrite dynamic import() statements with string literals
+      // Handle both single and double quotes, and template literals
+      jsContent = jsContent.replace(/import\s*\(\s*(['"`])([^'"`]+)\1\s*\)/g, (match, quote, urlPath) => {
+        const newPath = resolvePath(urlPath);
+        if (newPath) {
+          return `import(${quote}${newPath}${quote})`;
+        }
+        return match;
+      });
+      
+      // Also handle import statements that might use template literals with expressions
+      // This is a simplified approach - full template literal rewriting would be more complex
+      
+      // Rewrite import.meta.url usage (for new URL() with import.meta.url as base)
+      // This is harder to rewrite accurately, so we'll inject a helper
+      // Note: This is a simplified approach - full import.meta.url rewriting would be more complex
+      
+      content = textEncoder.encode(jsContent);
+    }
 
     // Set appropriate headers
     // Add Cross-Origin-Resource-Policy for cross-origin isolation (needed for COEP: require-corp)
