@@ -20,10 +20,10 @@
     throw new Error('No src parameter');
   }
 
-  // use the API function
+  // Load the game directly in the iframe
   const iframe = document.getElementById('gameFrame');
-  iframe.src = `/api/viewer?src=${encodeURIComponent(rawUrl)}`;
-</script>
+  iframe.src = rawUrl;
+  </script>
 
 </body>
 </html>
