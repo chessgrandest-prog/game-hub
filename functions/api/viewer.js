@@ -23,7 +23,18 @@ export default async function handler(req, res) {
       return res.status(response.status).json({ error: `Failed to fetch game: ${response.status}` });
     }
 
-    const html = await response.text();
+    let html = await response.text();
+
+    // Rewrite relative links to absolute
+    const baseUrl = src.replace(/\/[^\/]*$/, '/'); // Get directory of the src URL
+    html = html.replace(/href="([^"]*)"/g, (match, p1) => {
+      if (p1.startsWith('http') || p1.startsWith('//')) return match;
+      return `href="${baseUrl}${p1}"`;
+    });
+    html = html.replace(/src="([^"]*)"/g, (match, p1) => {
+      if (p1.startsWith('http') || p1.startsWith('//')) return match;
+      return `src="${baseUrl}${p1}"`;
+    });
 
     // Set appropriate headers
     res.setHeader('Content-Type', 'text/html');
