@@ -46,11 +46,14 @@ export async function onRequest(context) {
     });
 
     // Set appropriate headers
+    // Add cross-origin isolation headers for Terraria/WebAssembly games
     return new Response(html, {
       headers: {
         'Content-Type': 'text/html',
         'Cache-Control': 'public, max-age=3600',
-        'X-Frame-Options': 'ALLOWALL'
+        'X-Frame-Options': 'ALLOWALL',
+        'Cross-Origin-Embedder-Policy': 'require-corp',
+        'Cross-Origin-Opener-Policy': 'same-origin'
       }
     });
 
