@@ -28,6 +28,7 @@ export default async function handler(req, res) {
     // Set appropriate headers
     res.setHeader('Content-Type', 'text/html');
     res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+    res.setHeader('X-Frame-Options', 'ALLOWALL'); // Allow iframe embedding
 
     res.status(200).send(html);
   } catch (error) {
