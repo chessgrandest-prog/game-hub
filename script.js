@@ -128,9 +128,12 @@ const updateCardFavorite = (card, isFav) => {
 const buildCard = game => {
   /* ---------- NEW LOGIC ---------- */
   // If the game URL is already a full HTTPS URL we use it as‑is.
+  // If it starts with "/", it's a local path and we use it as-is.
   // Otherwise we assume it is a relative path within the repo and build the raw‑GitHub URL.
   const rawBase = 'https://raw.githubusercontent.com/chessgrandest-prog/fun/main';
   const fullSrc = game.url.startsWith('http')
+    ? game.url
+    : game.url.startsWith('/')
     ? game.url
     : `${rawBase}/${game.url.replace(/^\/+/, '')}`;
   /* -------------------------------- */
