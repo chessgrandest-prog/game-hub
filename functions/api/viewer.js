@@ -1,60 +1,40 @@
-// functions/api/viewer.js
-export default async function handler(req, res) {
-  let { src } = req.query;
+exports.handler = async (event, context) => {
+  const { src } = event.queryStringParameters;
 
   if (!src) {
-    res.status(400).json({ error: 'Missing src parameter' });
-    return;
+    return {
+      statusCode: 400,
+      body: 'Missing src parameter'
+    };
   }
-
-  // ---------- OPTIONAL LINE ----------
-  // Ensure the incoming src is a fully‑encoded URL before we fetch it
-  src = encodeURI(src);
-  // ------------------------------------
-
-  console.log('viewer.js received src:', src); // shows up in Function Logs
 
   try {
-    // 1️⃣ Grab the raw HTML from GitHub
-    const resp = await fetch(src, { headers: { Accept: 'text/html' } });
-    if (!resp.ok) throw new Error(`GitHub responded ${resp.status}`);
+    // Validate URL
+    new URL(src);
 
-    let html = await resp.text();
-
-    // 2️⃣ Build the base URL (everything up to the last slash)
-    const baseUrl = src.replace(/[^/]+$/, '');
-
-    // 3️⃣ Insert <base> into <head> or create one if missing
-    const headMatch = html.match(/<head[^>]*>/i);
-    if (headMatch) {
-      // Insert right after <head>
-      const insertPos = headMatch.index + headMatch[0].length;
-      html =
-        html.slice(0, insertPos) +
-        `<base href="${baseUrl}">` +
-        html.slice(insertPos);
-    } else {
-      // No <head> – create one after <html>
-      const htmlTag = html.match(/<html[^>]*>/i);
-      if (htmlTag) {
-        const insertPos = htmlTag.index + htmlTag[0].length;
-        html =
-          html.slice(0, insertPos) +
-          `<head><base href="${baseUrl}"></head>` +
-          html.slice(insertPos);
-      } else {
-        // Fallback – prepend the base tag
-        html = `<base href="${baseUrl}">` + html;
-      }
+    const response = await fetch(src);
+    if (!response.ok) {
+      return {
+        statusCode: response.status,
+        body: `Failed to fetch game: ${response.statusText}`
+      };
     }
 
-    // 4️⃣ Return the modified page
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('X-Frame-Options', 'ALLOWALL');
-    res.setHeader('Cache-Control', 'public, max-age=3600');
-    res.send(html);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Could not load game' });
+    const html = await response.text();
+
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'text/html',
+        'Access-Control-Allow-Origin': '*',
+      },
+      body: html
+    };
+  } catch (error) {
+    console.error('Error fetching game:', error);
+    return {
+      statusCode: 500,
+      body: 'Internal server error'
+    };
   }
-}
+};
