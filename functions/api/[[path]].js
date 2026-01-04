@@ -56,12 +56,15 @@ export async function onRequest(context) {
       });
     }
 
-    const content = await response.arrayBuffer();
+    let content = await response.arrayBuffer();
 
     // Determine MIME type based on file extension
     let mimeType = 'text/plain';
-    if (relativePath.endsWith('.css')) mimeType = 'text/css';
-    else if (relativePath.endsWith('.js')) mimeType = 'application/javascript';
+    const isCss = relativePath.endsWith('.css');
+    const isJs = relativePath.endsWith('.js');
+    
+    if (isCss) mimeType = 'text/css';
+    else if (isJs) mimeType = 'application/javascript';
     else if (relativePath.endsWith('.json')) mimeType = 'application/json';
     else if (relativePath.endsWith('.png')) mimeType = 'image/png';
     else if (relativePath.endsWith('.jpg') || relativePath.endsWith('.jpeg')) mimeType = 'image/jpeg';
@@ -79,6 +82,56 @@ export async function onRequest(context) {
     else if (relativePath.endsWith('.ico')) mimeType = 'image/x-icon';
     else if (relativePath.endsWith('.dll')) mimeType = 'application/octet-stream';
     else if (relativePath.endsWith('.dat')) mimeType = 'application/octet-stream';
+
+    // Rewrite URLs in CSS files (url(), @import, etc.)
+    if (isCss) {
+      const textDecoder = new TextDecoder();
+      const textEncoder = new TextEncoder();
+      let cssContent = textDecoder.decode(content);
+      const encodedSrc = encodeURIComponent(src);
+      
+      // Rewrite url() references in CSS
+      cssContent = cssContent.replace(/url\((['"]?)([^'")]+)\1\)/gi, (match, quote, urlPath) => {
+        // Skip absolute URLs, data URIs, hash links
+        if (urlPath.startsWith('http') || urlPath.startsWith('//') || urlPath.startsWith('data:') || urlPath.startsWith('#') || urlPath.startsWith('mailto:')) {
+          return match;
+        }
+        
+        // Normalize path - handle relative paths relative to CSS file location
+        let normalizedPath = urlPath.trim();
+        
+        if (!normalizedPath.startsWith('/')) {
+          // Resolve relative path relative to CSS file's directory
+          const cssDir = relativePath.includes('/') 
+            ? relativePath.substring(0, relativePath.lastIndexOf('/') + 1)
+            : '';
+          
+          // Resolve .. and . in the path
+          const pathParts = (cssDir + normalizedPath).split('/');
+          const resolvedParts = [];
+          
+          for (const part of pathParts) {
+            if (part === '..') {
+              resolvedParts.pop();
+            } else if (part !== '.' && part !== '') {
+              resolvedParts.push(part);
+            }
+          }
+          
+          normalizedPath = '/' + resolvedParts.join('/');
+        } else {
+          // Remove leading ./ if present
+          normalizedPath = normalizedPath.replace(/^\.\//, '');
+        }
+        
+        // Build API path with src parameter
+        const separator = normalizedPath.includes('?') ? '&' : '?';
+        const newUrl = `/api${normalizedPath}${separator}src=${encodedSrc}`;
+        return `url(${quote}${newUrl}${quote})`;
+      });
+      
+      content = textEncoder.encode(cssContent);
+    }
 
     // Set appropriate headers
     // Add Cross-Origin-Resource-Policy for cross-origin isolation (needed for COEP: require-corp)

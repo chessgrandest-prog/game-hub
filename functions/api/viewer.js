@@ -36,6 +36,14 @@ export async function onRequest(context) {
 
     let html = await response.text();
 
+    // Block service worker registration (service workers can't work properly when proxied)
+    // Inject a script at the beginning of the head to disable service workers
+    if (html.includes('</head>')) {
+      html = html.replace('</head>', '<script>if(navigator.serviceWorker){navigator.serviceWorker.register=function(){return Promise.reject(new Error("Service workers disabled in proxy mode"));};}</script></head>');
+    } else if (html.includes('<body>')) {
+      html = html.replace('<body>', '<script>if(navigator.serviceWorker){navigator.serviceWorker.register=function(){return Promise.reject(new Error("Service workers disabled in proxy mode"));};}</script><body>');
+    }
+
     // Rewrite relative links to proxy through the API
     const encodedSrc = encodeURIComponent(src);
     html = html.replace(/(href|src)=(['"])(.*?)\2/g, (match, attr, quote, p1) => {
