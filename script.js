@@ -128,15 +128,28 @@ const updateCardFavorite = (card, isFav) => {
 const buildCard = game => {
   /* ---------- NEW LOGIC ---------- */
   // If the game URL is already a full HTTPS URL we use it as‑is.
+  // If it starts with '/', treat it as a local path.
   // Otherwise we assume it is a relative path within the repo and build the raw‑GitHub URL.
   const rawBase = 'https://raw.githubusercontent.com/chessgrandest-prog/fun/main';
-  const fullSrc = game.url.startsWith('http')
-    ? game.url
-    : `${rawBase}/${game.url.replace(/^\/+/, '')}`;
+  let fullSrc;
+  let isLocal = false;
+
+  if (game.url.startsWith('http')) {
+    fullSrc = game.url;
+  } else if (game.url.startsWith('/')) {
+    fullSrc = game.url;
+    isLocal = true;
+  } else {
+    fullSrc = `${rawBase}/${game.url.replace(/^\/+/, '')}`;
+  }
   /* -------------------------------- */
 
   const card = document.createElement('a');
-  card.href = `viewer.html?src=${encodeURIComponent(fullSrc)}`;
+  if (isLocal) {
+    card.href = fullSrc;
+  } else {
+    card.href = `viewer.html?src=${encodeURIComponent(fullSrc)}`;
+  }
   card.target = '_blank';
   card.rel = 'noopener noreferrer';
   card.className = 'card';
