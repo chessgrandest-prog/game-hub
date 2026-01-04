@@ -20,10 +20,10 @@
     throw new Error('No src parameter');
   }
 
-  // use the API function
+  // Load the game via the proxy function
   const iframe = document.getElementById('gameFrame');
   iframe.src = `/api/viewer?src=${encodeURIComponent(rawUrl)}`;
-</script>
+  </script>
 
 </body>
 </html>
