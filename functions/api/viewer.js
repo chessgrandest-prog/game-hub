@@ -1,40 +1,37 @@
-exports.handler = async (event, context) => {
-  const { src } = event.queryStringParameters;
+export default async function handler(req, res) {
+  const { src } = req.query;
 
   if (!src) {
-    return {
-      statusCode: 400,
-      body: 'Missing src parameter'
-    };
+    return res.status(400).json({ error: 'Missing src parameter' });
   }
 
   try {
-    // Validate URL
-    new URL(src);
+    // Validate URL to prevent SSRF
+    const url = new URL(src);
+    if (!url.protocol.startsWith('http')) {
+      return res.status(400).json({ error: 'Invalid URL protocol' });
+    }
 
-    const response = await fetch(src);
+    // Fetch the game HTML
+    const response = await fetch(src, {
+      headers: {
+        'User-Agent': 'Game-Hub-Viewer/1.0'
+      }
+    });
+
     if (!response.ok) {
-      return {
-        statusCode: response.status,
-        body: `Failed to fetch game: ${response.statusText}`
-      };
+      return res.status(response.status).json({ error: `Failed to fetch game: ${response.status}` });
     }
 
     const html = await response.text();
 
-    return {
-      statusCode: 200,
-      headers: {
-        'Content-Type': 'text/html',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: html
-    };
+    // Set appropriate headers
+    res.setHeader('Content-Type', 'text/html');
+    res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+
+    res.status(200).send(html);
   } catch (error) {
     console.error('Error fetching game:', error);
-    return {
-      statusCode: 500,
-      body: 'Internal server error'
-    };
+    res.status(500).json({ error: 'Internal server error' });
   }
-};
+}
