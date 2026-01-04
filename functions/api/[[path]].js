@@ -198,12 +198,13 @@ export async function onRequest(context) {
 
     // Set appropriate headers
     // Add Cross-Origin-Resource-Policy for cross-origin isolation (needed for COEP: require-corp)
+    // Use 'same-origin' since all resources are served through the API proxy on the same origin
     return new Response(content, {
       headers: {
         'Content-Type': mimeType,
         'Cache-Control': 'public, max-age=3600',
         'Access-Control-Allow-Origin': '*',
-        'Cross-Origin-Resource-Policy': 'cross-origin'
+        'Cross-Origin-Resource-Policy': 'same-origin'
       }
     });
 
