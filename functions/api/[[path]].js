@@ -3,10 +3,6 @@ export async function onRequest(context) {
   const url = new URL(request.url);
   const src = url.searchParams.get('src');
 
-  // If this is the viewer path, let viewer.js handle it (though viewer.js should take precedence)
-  // But since this is a catch-all, we should ensure we don't interfere if possible.
-  // However, in Cloudflare Pages, specific files take precedence over catch-all.
-  
   if (!src) {
     return new Response(JSON.stringify({ error: 'Missing src parameter' }), {
       status: 400,
@@ -25,12 +21,9 @@ export async function onRequest(context) {
     }
 
     // Construct the file URL
-    // src is the URL of the game HTML (e.g. .../index.html)
-    // We want the directory of that file to be the base for relative assets
     const baseUrl = src.replace(/\/[^\/]*$/, '/'); 
     
-    // The path parameter from the URL (e.g. ['style.css'] or ['assets', 'image.png'])
-    // params.path is an array in a [[path]].js file
+    // The path parameter from the URL
     const pathSegments = params.path;
     if (!pathSegments || pathSegments.length === 0) {
        return new Response(JSON.stringify({ error: 'No path specified' }), {
@@ -90,23 +83,18 @@ export async function onRequest(context) {
       let cssContent = textDecoder.decode(content);
       const encodedSrc = encodeURIComponent(src);
       
-      // Rewrite url() references in CSS
       cssContent = cssContent.replace(/url\((['"]?)([^'")]+)\1\)/gi, (match, quote, urlPath) => {
-        // Skip absolute URLs, data URIs, hash links
         if (urlPath.startsWith('http') || urlPath.startsWith('//') || urlPath.startsWith('data:') || urlPath.startsWith('#') || urlPath.startsWith('mailto:')) {
           return match;
         }
         
-        // Normalize path - handle relative paths relative to CSS file location
         let normalizedPath = urlPath.trim();
         
         if (!normalizedPath.startsWith('/')) {
-          // Resolve relative path relative to CSS file's directory
           const cssDir = relativePath.includes('/') 
             ? relativePath.substring(0, relativePath.lastIndexOf('/') + 1)
             : '';
           
-          // Resolve .. and . in the path
           const pathParts = (cssDir + normalizedPath).split('/');
           const resolvedParts = [];
           
@@ -120,11 +108,9 @@ export async function onRequest(context) {
           
           normalizedPath = '/' + resolvedParts.join('/');
         } else {
-          // Remove leading ./ if present
           normalizedPath = normalizedPath.replace(/^\.\//, '');
         }
         
-        // Build API path with src parameter
         const separator = normalizedPath.includes('?') ? '&' : '?';
         const newUrl = `/api${normalizedPath}${separator}src=${encodedSrc}`;
         return `url(${quote}${newUrl}${quote})`;
@@ -133,28 +119,25 @@ export async function onRequest(context) {
       content = textEncoder.encode(cssContent);
     }
     
-    // Rewrite URLs in JavaScript files (import(), import.meta.url, etc.)
+    // Rewrite URLs in JavaScript files
     if (isJs) {
       const textDecoder = new TextDecoder();
       const textEncoder = new TextEncoder();
       let jsContent = textDecoder.decode(content);
       const encodedSrc = encodeURIComponent(src);
       
-      // Helper function to resolve a path relative to the JS file's directory
       const resolvePath = (urlPath) => {
         if (urlPath.startsWith('http') || urlPath.startsWith('//') || urlPath.startsWith('data:') || urlPath.startsWith('#') || urlPath.startsWith('mailto:')) {
-          return null; // Don't rewrite absolute URLs
+          return null;
         }
         
         let normalizedPath = urlPath.trim();
         
         if (!normalizedPath.startsWith('/')) {
-          // Resolve relative path relative to JS file's directory
           const jsDir = relativePath.includes('/') 
             ? relativePath.substring(0, relativePath.lastIndexOf('/') + 1)
             : '';
           
-          // Resolve .. and . in the path
           const pathParts = (jsDir + normalizedPath).split('/');
           const resolvedParts = [];
           
@@ -168,7 +151,6 @@ export async function onRequest(context) {
           
           normalizedPath = '/' + resolvedParts.join('/');
         } else {
-          // Remove leading ./ if present
           normalizedPath = normalizedPath.replace(/^\.\//, '');
         }
         
@@ -176,8 +158,6 @@ export async function onRequest(context) {
         return `/api${normalizedPath}${separator}src=${encodedSrc}`;
       };
       
-      // Rewrite dynamic import() statements with string literals
-      // Handle both single and double quotes, and template literals
       jsContent = jsContent.replace(/import\s*\(\s*(['"`])([^'"`]+)\1\s*\)/g, (match, quote, urlPath) => {
         const newPath = resolvePath(urlPath);
         if (newPath) {
@@ -186,25 +166,19 @@ export async function onRequest(context) {
         return match;
       });
       
-      // Also handle import statements that might use template literals with expressions
-      // This is a simplified approach - full template literal rewriting would be more complex
-      
-      // Rewrite import.meta.url usage (for new URL() with import.meta.url as base)
-      // This is harder to rewrite accurately, so we'll inject a helper
-      // Note: This is a simplified approach - full import.meta.url rewriting would be more complex
-      
       content = textEncoder.encode(jsContent);
     }
 
     // Set appropriate headers
-    // Add Cross-Origin-Resource-Policy for cross-origin isolation (needed for COEP: require-corp)
-    // Use 'same-origin' since all resources are served through the API proxy on the same origin
     return new Response(content, {
       headers: {
         'Content-Type': mimeType,
         'Cache-Control': 'public, max-age=3600',
         'Access-Control-Allow-Origin': '*',
-        'Cross-Origin-Resource-Policy': 'same-origin'
+        'Cross-Origin-Resource-Policy': 'same-origin',
+        // --- ADDED FOR TERRARIA / WASM SUPPORT ---
+        'Cross-Origin-Embedder-Policy': 'require-corp',
+        'Cross-Origin-Opener-Policy': 'same-origin'
       }
     });
 
