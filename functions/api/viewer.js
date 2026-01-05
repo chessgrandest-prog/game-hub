@@ -36,13 +36,10 @@ export async function onRequest(context) {
 
     let html = await response.text();
 
-    // Block service worker registration (service workers can't work properly when proxied)
-    // Inject a script at the beginning of the head to disable service workers
-    if (html.includes('</head>')) {
-      html = html.replace('</head>', '<script>if(navigator.serviceWorker){navigator.serviceWorker.register=function(){return Promise.reject(new Error("Service workers disabled in proxy mode"));};}</script></head>');
-    } else if (html.includes('<body>')) {
-      html = html.replace('<body>', '<script>if(navigator.serviceWorker){navigator.serviceWorker.register=function(){return Promise.reject(new Error("Service workers disabled in proxy mode"));};}</script><body>');
-    }
+    /* REMOVED: The section that injected a script to disable service workers.
+       Terraria and other WASM games often require service workers for 
+       virtual file systems or caching.
+    */
 
     // Rewrite relative links to proxy through the API
     const encodedSrc = encodeURIComponent(src);
@@ -86,8 +83,7 @@ export async function onRequest(context) {
     });
 
     // Set appropriate headers
-    // Add cross-origin isolation headers for Terraria/WebAssembly games
-    // Note: X-Frame-Options is removed as it can interfere with cross-origin isolation
+    // These headers enable Cross-Origin Isolation, which is required for SharedArrayBuffer
     return new Response(html, {
       headers: {
         'Content-Type': 'text/html',
