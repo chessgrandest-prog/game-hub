@@ -1,19 +1,36 @@
-/* ─────── 1️⃣ DOM ELEMENTS ─────── */
+/* ─────── 1️⃣ CONFIGURATION & DOM ─────── */
+const RAW_GITHUB_BASE = 'https://raw.githubusercontent.com/chessgrandest-prog/fun/main';
 const container = document.getElementById('games');
-const header    = document.querySelector('header');
+const header = document.querySelector('header');
 
-/* ─────── 2️⃣ LocalStorage helpers ─────── */
+/* ─────── 2️⃣ PERSISTENCE (LocalStorage) ─────── */
 const LS = {
-  THEME:        'gamehub-theme',
-  FAVORITES:    'gamehub-favs',
-  getTheme:     () => localStorage.getItem('gamehub-theme') ?? 'light',
-  setTheme:     (t) => localStorage.setItem('gamehub-theme', t),
-  getFavs:      () => JSON.parse(localStorage.getItem('gamehub-favs') || '{}'),
-  setFavs:      (d) => localStorage.setItem('gamehub-favs', JSON.stringify(d)),
+  getTheme: () => localStorage.getItem('gamehub-theme') || 'light',
+  setTheme: (t) => localStorage.setItem('gamehub-theme', t),
+  getFavs: () => JSON.parse(localStorage.getItem('gamehub-favs') || '{}'),
+  setFavs: (d) => localStorage.setItem('gamehub-favs', JSON.stringify(d)),
 };
 
-/* ─────── 3️⃣ Theme toggle ─────── */
-const applyTheme = t => document.documentElement.dataset.theme = t;
+/* ─────── 3️⃣ UTILITIES: URL RESOLVER ─────── */
+const resolveGameUrl = (inputUrl) => {
+  // 1. If it's the specific Terraria site, return it as-is to bypass proxy errors
+  if (inputUrl.includes('mercurywork.shop')) {
+    return inputUrl;
+  }
+  
+  // 2. Construct the full GitHub source if it's just a path
+  const fullSrc = inputUrl.startsWith('http') 
+    ? inputUrl 
+    : `${RAW_GITHUB_BASE}/${inputUrl.replace(/^\/+/, '')}`;
+    
+  // 3. Wrap GitHub links in the viewer proxy
+  return `viewer.html?src=${encodeURIComponent(fullSrc)}`;
+};
+
+/* ─────── 4️⃣ UI COMPONENTS ─────── */
+
+// Theme Toggle
+const applyTheme = (t) => (document.documentElement.dataset.theme = t);
 applyTheme(LS.getTheme());
 
 const btnTheme = document.createElement('button');
@@ -27,211 +44,117 @@ btnTheme.onclick = () => {
 };
 header.appendChild(btnTheme);
 
-/* ─────── 4️⃣ Search input ─────── */
+// Search Bar
 const searchInput = document.createElement('input');
-searchInput.id   = 'searchInput';
-searchInput.type = 'text';
-searchInput.placeholder = 'Search…';
-searchInput.oninput = () => renderGames(filterGames(searchInput.value, allGames));
+searchInput.id = 'searchInput';
+searchInput.placeholder = 'Search games…';
+searchInput.oninput = () => renderGames();
 header.appendChild(searchInput);
 
-/* ─────── 5️⃣ Random game button ─────── */
+// Random Button
 const btnRandom = document.createElement('button');
 btnRandom.className = 'toolbar-btn';
 btnRandom.textContent = '🎲 Random';
-btnRandom.onclick = () => openRandom(allGames);
+btnRandom.onclick = () => {
+  if (!allGames.length) return;
+  const r = allGames[Math.floor(Math.random() * allGames.length)];
+  window.open(resolveGameUrl(r.url), '_blank');
+};
 header.appendChild(btnRandom);
 
-/* ─────── 6️⃣ About button (opens a new blank tab) ─────── */
-const btnAbout = document.createElement('button');
-btnAbout.className = 'toolbar-btn';
-btnAbout.textContent = 'About : blank';
-
-btnAbout.onclick = () => {
-  // 1️⃣ open a fresh about:blank window
-  const aboutWin = window.open('', '_blank');
-
-  // 2️⃣ inject the full page (header, grid, script, style)
-  aboutWin.document.write(`
-    <!doctype html>
-    <html lang="en">
-      <head>
-        <meta charset="utf-8">
-        <title>Game Hub – About</title>
-        <link rel="stylesheet" href="style.css">
-        <script src="script.js" defer></script>
-      </head>
-      <body>
-        <header></header>
-        <main id="games" class="grid"></main>
-      </body>
-    </html>
-  `);
-  aboutWin.document.close();
-
-  // 3️⃣ patch links once the grid has finished rendering
-  aboutWin.addEventListener('load', () => {
-    const patchLinks = () => {
-      const links = aboutWin.document.querySelectorAll('#games a');
-      links.forEach(a => {
-        const gameUrl = a.getAttribute('href');   // e.g. viewer.html?src=…
-        a.removeAttribute('href');
-        a.style.cursor = 'pointer';
-
-        // open the game in a *new* blank tab
-        a.onclick = () => {
-          const gameWin = window.open('', '_blank');
-          gameWin.document.write(`
-            <!doctype html>
-            <html lang="en">
-              <head>
-                <meta charset="utf-8">
-                <title>Playing… ${gameUrl}</title>
-                <link rel="stylesheet" href="style.css">
-              </head>
-              <body style="margin:0;">
-                <iframe src="${gameUrl}" style="width:100%;height:100%;border:0;"></iframe>
-              </body>
-            </html>
-          `);
-          gameWin.document.close();
-        };
-      });
-    };
-
-    const checkReady = setInterval(() => {
-      if (aboutWin.document.querySelectorAll('#games .card').length) {
-        clearInterval(checkReady);
-        patchLinks();
-      }
-    }, 100);
-  });
-};
-
-header.appendChild(btnAbout);
-
-/* ─────── 7️⃣ Favorites helpers ─────── */
-const toggleFavorite = (card, url) => {
-  const favs = LS.getFavs();
-  if (favs[url]) delete favs[url]; else favs[url] = true;
-  LS.setFavs(favs);
-  updateCardFavorite(card, !!favs[url]);
-};
-
-const updateCardFavorite = (card, isFav) => {
-  const star = card.querySelector('svg.favorite');
-  if (!star) return;
-  star.classList.toggle('fav-active', isFav);
-};
-
-/* ─────── 8️⃣ Build a single card (no innerHTML mutation) ─────── */
-const buildCard = game => {
-  /* ---------- NEW LOGIC ---------- */
-  // If the game URL is already a full HTTPS URL we use it as‑is.
-  // Otherwise we assume it is a relative path within the repo and build the raw‑GitHub URL.
-  const rawBase = 'https://raw.githubusercontent.com/chessgrandest-prog/fun/main';
-  const fullSrc = game.url.startsWith('http')
-    ? game.url
-    : `${rawBase}/${game.url.replace(/^\/+/, '')}`;
-  /* -------------------------------- */
-
-  const card = document.createElement('a');
-  card.href = `viewer.html?src=${encodeURIComponent(fullSrc)}`;
-  card.target = '_blank';
-  card.rel = 'noopener noreferrer';
-  card.className = 'card';
-
-  /* Star icon – SVG needs an explicit class attribute */
-  const star = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  star.setAttribute('viewBox', '0 0 24 24');
-  star.setAttribute('class', 'favorite');
-  star.innerHTML =
-    '<path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>';
-  star.onclick = e => {
-    e.preventDefault();
-    e.stopPropagation();
-    toggleFavorite(card, game.url);
-  };
-  card.appendChild(star);
-
-  /* Image */
-  const img = document.createElement('img');
-  img.src = game.image;
-  img.alt = game.title;
-  img.loading = 'lazy';
-  img.className = 'card-img';
-  img.addEventListener('load', () => img.classList.add('loaded'));
-  img.addEventListener('error', () => {
-    img.src = 'placeholder.png';
-    img.classList.add('loaded');
-  });
-  card.appendChild(img);
-
-  /* Title */
-  const title = document.createElement('div');
-  title.className = 'card-title';
-  title.textContent = game.title;
-  card.appendChild(title);
-
-  /* Initialise favourite state from localStorage */
-  const favs = LS.getFavs();
-  updateCardFavorite(card, !!favs[game.url]);
-
-  return card;
-};
-
-/* ─────── 9️⃣ Random / Search helpers ─────── */
-const openRandom = games => {
-  if (!games.length) return;
-  const r = games[Math.floor(Math.random() * games.length)];
-  window.open(`viewer.html?src=${encodeURIComponent(r.url)}`, '_blank');
-};
-
-const filterGames = (query, games) => {
-  const q = query.trim().toLowerCase();
-  if (!q) return games;
-  return games.filter(g => g.title.toLowerCase().includes(q));
-};
-
-/* ─────── 1️⃣0️⃣ Rendering the grid ─────── */
-let allGames = [];
-let showOnlyFavs = false;   // start by showing everything
-
-fetch('games.json')
-  .then(r => {
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    return r.json();
-  })
-  .catch(err => {
-    console.error('Could not load games.json', err);
-    container.innerHTML =
-      '<p>Failed to load games. <a href="games.json">Try again?</a></p>';
-    return [];
-  })
-  .then(games => {
-    allGames = games;
-    renderGames(games);
-  });
-
-function renderGames(games) {
-  if (showOnlyFavs) {
-    const favs = LS.getFavs();
-    games = games.filter(g => favs[g.url]);
-  }
-
-  container.innerHTML = '';
-  const frag = document.createDocumentFragment();
-  games.forEach(g => frag.appendChild(buildCard(g)));
-  container.appendChild(frag);
-}
-
-/* ─────── ★ “Favorites‑Only” toggle button ─────── */
+// Favorites Toggle
+let showOnlyFavs = false;
 const btnFavOnly = document.createElement('button');
 btnFavOnly.className = 'toolbar-btn';
 btnFavOnly.textContent = '★ All';
 btnFavOnly.onclick = () => {
   showOnlyFavs = !showOnlyFavs;
-  btnFavOnly.textContent = showOnlyFavs ? '★ Show All' : '★ All';
-  renderGames(filterGames(searchInput.value, allGames));
+  btnFavOnly.textContent = showOnlyFavs ? '★ Favorites' : '★ All';
+  renderGames();
 };
 header.appendChild(btnFavOnly);
+
+// About : Blank Button (Optimized)
+const btnAbout = document.createElement('button');
+btnAbout.className = 'toolbar-btn';
+btnAbout.textContent = 'About : Blank';
+btnAbout.onclick = () => {
+  const aboutWin = window.open('about:blank', '_blank');
+  const currentHtml = document.documentElement.outerHTML;
+  aboutWin.document.write(currentHtml);
+  aboutWin.document.close();
+};
+header.appendChild(btnAbout);
+
+/* ─────── 5️⃣ CARD ENGINE ─────── */
+const buildCard = (game) => {
+  const finalUrl = resolveGameUrl(game.url);
+  
+  const card = document.createElement('a');
+  card.href = finalUrl;
+  card.target = '_blank';
+  card.className = 'card';
+
+  // Star Icon
+  const star = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  star.setAttribute('viewBox', '0 0 24 24');
+  star.setAttribute('class', 'favorite');
+  if (LS.getFavs()[game.url]) star.classList.add('fav-active');
+  star.innerHTML = '<path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>';
+  star.onclick = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const favs = LS.getFavs();
+    if (favs[game.url]) delete favs[game.url]; else favs[game.url] = true;
+    LS.setFavs(favs);
+    star.classList.toggle('fav-active');
+  };
+  card.appendChild(star);
+
+  // Thumbnail
+  const img = document.createElement('img');
+  img.src = game.image;
+  img.className = 'card-img';
+  img.loading = 'lazy';
+  img.onload = () => img.classList.add('loaded');
+  img.onerror = () => { img.src = 'placeholder.png'; img.classList.add('loaded'); };
+  card.appendChild(img);
+
+  // Label
+  const title = document.createElement('div');
+  title.className = 'card-title';
+  title.textContent = game.title;
+  card.appendChild(title);
+
+  return card;
+};
+
+/* ─────── 6️⃣ CORE RENDERER ─────── */
+let allGames = [];
+
+const renderGames = () => {
+  const query = searchInput.value.toLowerCase();
+  const favs = LS.getFavs();
+  
+  const filtered = allGames.filter(g => {
+    const matchesSearch = g.title.toLowerCase().includes(query);
+    const matchesFav = !showOnlyFavs || favs[g.url];
+    return matchesSearch && matchesFav;
+  });
+
+  container.innerHTML = '';
+  const fragment = document.createDocumentFragment();
+  filtered.forEach(game => fragment.appendChild(buildCard(game)));
+  container.appendChild(fragment);
+};
+
+/* ─────── 7️⃣ INIT ─────── */
+fetch('games.json')
+  .then(res => res.json())
+  .then(data => {
+    allGames = data;
+    renderGames();
+  })
+  .catch(err => {
+    console.error('Fetch error:', err);
+    container.innerHTML = `<p style="color:white">Error loading games.json</p>`;
+  });

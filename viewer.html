@@ -12,7 +12,7 @@
   <iframe 
     id="gameFrame" 
     src="" 
-    allow="cross-origin-isolated"
+    allow="cross-origin-isolated; autoplay; gamepad; fullscreen"
   ></iframe>
 
   <script>
@@ -21,13 +21,16 @@
 
   if (!rawUrl) {
     document.body.textContent = 'No game specified.';
-    throw new Error('No src parameter');
+  } else {
+    const iframe = document.getElementById('gameFrame');
+    // If it's a direct link (mercurywork), load it directly. 
+    // Otherwise, use the API proxy.
+    if (rawUrl.includes('mercurywork.shop')) {
+      iframe.src = rawUrl;
+    } else {
+      iframe.src = `/api/viewer?src=${encodeURIComponent(rawUrl)}`;
+    }
   }
-
-  // Load the game via the proxy function
-  const iframe = document.getElementById('gameFrame');
-  iframe.src = `/api/viewer?src=${encodeURIComponent(rawUrl)}`;
   </script>
-
 </body>
 </html>
